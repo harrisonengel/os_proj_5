@@ -1,5 +1,7 @@
 #include <iostream>
 #include <mpi.h>
+#include <string>
+
 
 using namespace std;
 
@@ -20,6 +22,7 @@ const string SEND_MSG = "<SEND>: <%s> <%d>";
 
 // Functions
 
+void run_command(string s);
 void parse_command(char com[]);
 void receive_command();
 bool compare_exec(char com[]);
@@ -27,11 +30,11 @@ bool compare_send(char com[]);
 
 int main(int args, char* argv[])
 {
-  int  rank, size, clock_val, from, to, status;
+  int  rank, size, from, to, status;
   string command,input;
- 
-  clock_val = 0;
-
+  LamportClock myClock;
+  
+  
   MPI_Init(&args, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -48,9 +51,12 @@ int main(int args, char* argv[])
     }
   else
     {
-      
-      
-      printf("Hello World! I'm process %d\n", rank);
+      myClock.init_clock(rank);
+      while(true)
+	{
+	  myClock.receive_msg();
+
+	}
 
     }
 
@@ -59,23 +65,6 @@ int main(int args, char* argv[])
 
 }
 
-
-void parse_command(char com[])
-{
-  if(compare_exec(com))
-    {
-      printf("EXEC CALLED");
-    }
-  else if(compare_send(com))
-    {
-      printf("Send Called");
-    }
-  else
-    {
-      printf("ERROR");
-    }
-
-}
 
 bool compare_exec(char com[])
 {
@@ -103,17 +92,18 @@ void run_command(string s)
   int p1, p2;
   
   command = s.substr(0,s.find(" "));
+
   if(command.compare("exec") == 0)
     {
-      p1 = stoi(s.substr(s.find(" ") + 1));
+      p1 = atoi(s.substr(s.find(" ") + 1).c_str());
      
     }
   else if(command.compare("send") == 0)
     {
       temp = s.substr(s.find(" ") + 1);
-      p1 = stoi(temp.substr(0,temp.find(" ")));
+      p1 = atoi(temp.substr(0,temp.find(" ")).c_str());
       temp = temp.substr(temp.find(" ") + 1);
-      p2 = stoi(temp.substr(0, temp.find(" ")));
+      p2 = atoi(temp.substr(0, temp.find(" ")).c_str());
       message = temp.substr(temp.find(" ") + 1);
 
       string final_msg = to_string(sprintf("<SEND>: <%s> <%d>",message.c_str(), p2));
@@ -161,11 +151,12 @@ void LamportClock::receive_msg()
   int proc;
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   
-  if(strcmp(msg, EXEC_MSG.c_str()))
+  if(EXEC_MSG.compare(msg))
     {
+      printf("Received Exec Command.\n");
       exec_event();
     }
-  else if(strcmp(msg, SEND_MSG.c_str()))
+  else if(SEND_MSG.compare(msg))
     {
       
     }
