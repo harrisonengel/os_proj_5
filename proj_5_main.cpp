@@ -89,13 +89,12 @@ void run_command(string s)
 
       temp = temp.substr(temp.find(" ") + 1);
       p2 = atoi(temp.substr(0, temp.find(" ")).c_str());
-      printf("p1 : %d , p2 : %d \n", p1, p2);
+
       message = temp.substr(temp.find(" ") + 1);
 
       final_msg = new char[256];
       sprintf(final_msg,"<SEND>: <%s> <%d>",message.c_str(), p2);
-
-     
+           
       MPI_Send(final_msg,string(final_msg).length(), MPI_CHAR, p1,0, MPI_COMM_WORLD);
 
     }
@@ -124,16 +123,24 @@ void LamportClock::send_msg(string msg, int proc)
 
   count++;
   MPI_Send(msg.c_str(), msg.length(), MPI_CHAR, proc, 0, MPI_COMM_WORLD);
-  printf("[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d",rank,proc,msg.c_str(),count);
+  printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d",rank,proc,msg.c_str(),count);
 
 }
+
+bool compare_send(string s)
+{
+  return(s[0] == '<' && s[1] == 'S' && s[2] == 'E'
+	 && s[3] == 'N' && s[4] == 'D' && s[5] == '>');
+  
+}
+  
 
 void LamportClock::receive_msg()
 {
   MPI_Status stat;
-  char msg[256];
+  char msg[256], temp_msg[256];
   int proc;
-  string temp, temp_msg;
+  string temp, temp2;
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   //printf("Message Received!");
   if(EXEC_MSG.compare(msg) == 0)
@@ -142,18 +149,23 @@ void LamportClock::receive_msg()
     }
   else
     {
-      temp = string(msg).substr(0,string(msg).find(":") );
-      if(temp.compare("<SEND>"))
+      
+      if(compare_send(string(msg)))
 	{
-	  temp_msg = string(msg).substr(string(msg).find("\""));
-	  temp_msg = temp_msg.substr(0,temp_msg.find("\""));
-
-	  send_msg(temp.substr(0,string(msg).find("\"")), 1);
+	  cout << "HEY I MADE IT" << endl;
+	  int i = scanf("%s %s %d", &temp_msg, &msg, &proc);
+	  cout << "PROBLEM IS SCANF" << endl;
+	  if(i < 0)
+	    {
+	      cout << "SCAN ERROR" << endl;
+	    }
+	  cout << msg << to_string(proc) << endl;
+	  send_msg("TEST MSG", proc);
 
 	}
       else
 	{
-	  printf("\tMessage Received from %d: Message >%s<: Logical Clock = %d", stat.MPI_SOURCE, msg, count);
+	  printf("\tMessage Received from %d: Message >%s<: Logical Clock = %d\n", stat.MPI_SOURCE, msg, count);
 	}
     }
 
