@@ -25,8 +25,7 @@ const string SEND_MSG = "<SEND>: <%s> <%d>";
 void run_command(string s);
 void parse_command(char com[]);
 void receive_command();
-bool compare_exec(char com[]);
-bool compare_send(char com[]);
+
 
 int main(int args, char* argv[])
 {
@@ -66,49 +65,39 @@ int main(int args, char* argv[])
 }
 
 
-bool compare_exec(char com[])
-{
-  return ((com[0] == 'e') && (com[1] == 'x')
-	  && (com[2] == 'e') && (com[3] == 'c')
-	  && (com[4] == ' '));
-
-}
-
-bool compare_send(char com[])
-{
-  return((com[0] == 's') && (com[1] == 'e')
-	 && (com[2] == 'n') && (com[3] == 'd')
-	 && (com[4] == ' '));
-
-
-  MPI_Finalize();
-
-}
-
-
 void run_command(string s)
 {
   string command, temp, message;
   int p1, p2;
+  char *final_msg;
   
   command = s.substr(0,s.find(" "));
 
   if(command.compare("exec") == 0)
     {
+      
       p1 = atoi(s.substr(s.find(" ") + 1).c_str());
-     
+
+
+      MPI_Send("<EXEC>",6, MPI_CHAR,p1,0, MPI_COMM_WORLD);
     }
   else if(command.compare("send") == 0)
     {
       temp = s.substr(s.find(" ") + 1);
+
       p1 = atoi(temp.substr(0,temp.find(" ")).c_str());
+
       temp = temp.substr(temp.find(" ") + 1);
       p2 = atoi(temp.substr(0, temp.find(" ")).c_str());
+      printf("p1 : %d , p2 : %d \n", p1, p2);
       message = temp.substr(temp.find(" ") + 1);
 
-      string final_msg = to_string(sprintf("<SEND>: <%s> <%d>",message.c_str(), p2));
-      
-      MPI_Send(final_msg.c_str(),final_msg.length(), MPI_CHAR,p1,0, MPI_COMM_WORLD);
+      final_msg = new char[256];
+      sprintf(final_msg,"<SEND>: <%s> <%d>",message.c_str(), p2);
+
+     
+      MPI_Send(final_msg,string(final_msg).length(), MPI_CHAR, p1,0, MPI_COMM_WORLD);
+
     }
   else
     {
@@ -117,11 +106,6 @@ void run_command(string s)
 	     
 }
 
-
-void send_exec(int proc)
-{
-  MPI_Send(EXEC_MSG.c_str(), EXEC_MSG.length(), MPI_CHAR, proc, 0, MPI_COMM_WORLD);
-}
 
 void LamportClock::init_clock(int r)
 {
@@ -132,7 +116,7 @@ void LamportClock::init_clock(int r)
 void LamportClock::exec_event()
 {
   count++;
-  printf("[%d]: Execution Event: Logical Clock = %d",rank, count);
+  printf("\t[%d]: Execution Event: Logical Clock = %d\n",rank, count);
 }
 
 void LamportClock::send_msg(string msg, int proc)
@@ -149,19 +133,28 @@ void LamportClock::receive_msg()
   MPI_Status stat;
   char msg[256];
   int proc;
+  string temp, temp_msg;
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-  
-  if(EXEC_MSG.compare(msg))
+  //printf("Message Received!");
+  if(EXEC_MSG.compare(msg) == 0)
     {
-      printf("Received Exec Command.\n");
       exec_event();
-    }
-  else if(SEND_MSG.compare(msg))
-    {
-      
     }
   else
     {
-      printf("[%d]: Message Received from %d: Message >%s<: Logical Clock = %d",rank,proc,msg,count);
+      temp = string(msg).substr(0,string(msg).find(":") );
+      if(temp.compare("<SEND>"))
+	{
+	  temp_msg = string(msg).substr(string(msg).find("\""));
+	  temp_msg = temp_msg.substr(0,temp_msg.find("\""));
+
+	  send_msg(temp.substr(0,string(msg).find("\"")), 1);
+
+	}
+      else
+	{
+	  printf("\tMessage Received from %d: Message >%s<: Logical Clock = %d", stat.MPI_SOURCE, msg, count);
+	}
     }
+
 }
