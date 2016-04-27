@@ -7,13 +7,17 @@
 using namespace std;
 
 // Functions
-void parse_command(char *com);
+void parse_command(char com[]);
+void receive_command();
+bool compare_exec(char com[]);
+bool compare_send(char com[]);
 
 int main(int args, char* argv[])
 {
-  int numProc, rank, size;
-  char command[256];
-
+  int  rank, size, clock_val, from, to, status;
+  string command,input;
+ 
+  clock_val = 0;
 
 
   MPI_Init(&args, &argv);
@@ -23,20 +27,18 @@ int main(int args, char* argv[])
   // Main Read loop
   if(rank == 0)
     {
-      cin >> numProc;
-      printf ("[0]: There are %d processes in the system\n", numProc);
-      /*      while(!string("end").compare(command))
+      printf ("[0]: There are %d processes in the system\n", size-1);
+      while(string("end").compare(input))
 	{
-	  cin >> command;
-	  
-	  parse_command(command);
-
-	  }*/
+	  getline(cin,input);
+	  command = input.substr(0, input.find(" "));
+	  printf("%s\n", command.c_str());
+	}
     }
   else
     {
       
-      // Message-Passing process code
+      
       printf("Hello World! I'm process %d\n", rank);
 
     }
@@ -47,9 +49,36 @@ int main(int args, char* argv[])
 }
 
 
-void parse_command(char *com)
+void parse_command(char com[])
 {
+  if(compare_exec(com))
+    {
+      printf("EXEC CALLED");
+    }
+  else if(compare_send(com))
+    {
+      printf("Send Called");
+    }
+  else
+    {
+      printf("ERROR");
+    }
 
-  // Do some command parsing
+}
+
+bool compare_exec(char com[])
+{
+  return ((com[0] == 'e') && (com[1] == 'x')
+	  && (com[2] == 'e') && (com[3] == 'c')
+	  && (com[4] == ' '));
+
+}
+
+bool compare_send(char com[])
+{
+  return((com[0] == 's') && (com[1] == 'e')
+	 && (com[2] == 'n') && (com[3] == 'd')
+	 && (com[4] == ' '));
+
 
 }
