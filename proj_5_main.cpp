@@ -123,14 +123,16 @@ void LamportClock::send_msg(string msg, int proc)
 
   count++;
   MPI_Send(msg.c_str(), msg.length(), MPI_CHAR, proc, 0, MPI_COMM_WORLD);
-  printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d",rank,proc,msg.c_str(),count);
+  printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d\n",rank,proc,msg.c_str(),count);
 
 }
+
+
 
 bool compare_send(string s)
 {
   return(s[0] == '<' && s[1] == 'S' && s[2] == 'E'
-	 && s[3] == 'N' && s[4] == 'D' && s[5] == '>');
+	 && s[3] == 'N' && s[4] == 'D' && s[5] == '>' && s[6] == ':');
   
 }
   
@@ -140,7 +142,7 @@ void LamportClock::receive_msg()
   MPI_Status stat;
   char msg[256], temp_msg[256];
   int proc;
-  string temp, temp2;
+  string temp, temp_num;
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   //printf("Message Received!");
   if(EXEC_MSG.compare(msg) == 0)
@@ -152,20 +154,23 @@ void LamportClock::receive_msg()
       
       if(compare_send(string(msg)))
 	{
-	  cout << "HEY I MADE IT" << endl;
-	  int i = scanf("%s %s %d", &temp_msg, &msg, &proc);
-	  cout << "PROBLEM IS SCANF" << endl;
-	  if(i < 0)
-	    {
-	      cout << "SCAN ERROR" << endl;
-	    }
-	  cout << msg << to_string(proc) << endl;
-	  send_msg("TEST MSG", proc);
+
+	  temp = string(msg);
+	  temp = temp.substr(temp.find("\"") + 1);
+	  temp = temp.substr(0, temp.find("\""));
+
+	  temp_num = string(msg);
+	  temp_num = temp_num.substr(temp_num.find_last_of("<")+1, temp_num.find_last_of(">"));
+	  
+	  cout << temp << endl;
+	  send_msg(temp, atoi(temp_num.c_str()));
 
 	}
       else
 	{
-	  printf("\tMessage Received from %d: Message >%s<: Logical Clock = %d\n", stat.MPI_SOURCE, msg, count);
+	  count++;
+	  
+	  printf("\t[%d]: Message Received from %d: Message >%s<: Logical Clock = %d\n",rank, stat.MPI_SOURCE, msg, count);
 	}
     }
 
