@@ -1,3 +1,10 @@
+/************************************
+ *
+ * Harrison Engel and Duy Dang
+ * Project 4 part 1: Lamport Logical Clocks
+ * Due April 29, 2016 
+ *
+ ************************************/
 #include <iostream>
 #include <mpi.h>
 #include <string>
@@ -5,32 +12,83 @@
 
 using namespace std;
 
-// Classes
+/***********************************
+ *
+ *     LamportClock
+ * 
+ * Class used to keep track of
+ * each logical clock. 
+ *
+ * Variabls
+ * -------
+ * lamport_clock: int 
+ *    - Keeps track of the logical clock
+ *
+ * rank: int
+ *    - Current rank of process with clock
+ *
+ * Functions
+ * ---------
+ * init_clock(int r):
+ *     - creates a new clock with starting
+ *       value of 0. r is its rank.
+ *
+ * exec_event():
+ *     - Simulates executing an event.
+ *
+ * send_msg(string msg, int proc)
+ *     - Simulates sending a message
+ *   
+ * receive_msg():
+ *     - Simulates receiving a message
+ ***********************************/
 class LamportClock{
 
 public:
-  int count, rank;
+  int lamport_clock, rank;
   void init_clock(int r);
   void exec_event();
   void send_msg(string msg, int proc);
   bool receive_msg();
 };
 
-// Constant variabls
-const string EXEC_MSG = "<EXEC>";
-const string SEND_MSG = "<SEND>: <%s> <%d>";
 
-// Functions
+
+/***********************************
+ *   Function Declarations
+ **********************************/
 
 void run_command(string s);
 void parse_command(char com[]);
 void receive_command();
 
 
+
+/*********************************
+ *    Main
+ *
+ * Main function of the lamport 
+ * logical clock simulation.
+ * Uses MPI to pass messages between
+ * processes and change clock values.
+ *
+ * Variables
+ * ---------
+ * rank: int
+ *     - Rank of the process, set using MPI_Comm_rank
+ * size: int
+ *     - Number of total processes in the system.
+ * input: string
+ *     - Stores lines from cin.
+ * myClock: LamportClock
+ *     - LamportClock for each process
+ * end_msg: char[]
+ *     - Stores the message to send when simulation ends
+ ********************************/
 int main(int args, char* argv[])
 {
-  int  rank, size, from, to, status;
-  string command,input;
+  int  rank, size;
+  string input;
   LamportClock myClock;
   char end_msg[] = "<END>";
   
@@ -41,7 +99,8 @@ int main(int args, char* argv[])
   // Main Read loop
   if(rank == 0)
     {
-      printf ("[0]: There are %d processes in the system\n", size-1);
+      getline(cin,input);
+      printf ("[0]: There are %d processes in the system\n", atoi(input.c_str()));
       while(true)
 	{
 	  getline(cin,input);
@@ -56,7 +115,7 @@ int main(int args, char* argv[])
 	{
 	  MPI_Send(&end_msg, 5, MPI_CHAR, i, 0, MPI_COMM_WORLD);
 	}
-      //      MPI_Bcast(&end_msg, 5,MPI_CHAR,0, MPI_COMM_WORLD);
+
     }
   else
     {
@@ -71,6 +130,29 @@ int main(int args, char* argv[])
 }
 
 
+/***********************************
+ *     Run Command
+ * 
+ * Method used to run a command from the
+ * "orchestrator" (process 0) process.
+ *
+ * Variables
+ * ---------
+ * command: string
+ *     - Stores the command (exec or send)
+ * temp: string
+ *     - String used for processing
+ * message: string
+ *     - String used to create final message to send
+ *       to another process.
+ * p1: int:
+ *     - pid of the process to send from (in send)
+ * p2: int:
+ *     - pid of the process to send to (in send)
+ * final_msg:
+ *     - Final message to send because it must be
+ *       sent as a char *. 
+ **********************************/
 void run_command(string s)
 {
   string command, temp, message;
@@ -112,27 +194,64 @@ void run_command(string s)
 }
 
 
+/**************************
+ *    Init Clock
+ * Initializes the clock.
+ * 
+ * Parameters
+ * ----------
+ * r: int
+ *     - The rank for MPI of this process
+ *************************/
 void LamportClock::init_clock(int r)
 {
-  count = 0;
+  lamport_clock = 0;
   rank = r;
 }
 
+/***************************
+ *
+ *     Exec Event
+ * Simulates executing an event.
+ * 
+ **************************/
 void LamportClock::exec_event()
 {
-  count++;
-  printf("\t[%d]: Execution Event: Logical Clock = %d\n",rank, count);
+  lamport_clock++;
+  printf("\t[%d]: Execution Event: Logical Clock = %d\n",rank, lamport_clock);
 }
 
+/****************************
+ *     Send Message
+ * Simulates sending a message from
+ * one lamport clock process to another.
+ *
+ * Parameters
+ * ----------
+ * msg: string
+ *     - The message to be sent (requires some processing)
+ * proc: int
+ *     - The process to send the message to
+ ****************************/
 void LamportClock::send_msg(string msg, int proc)
 {
   string s = msg.substr(0,msg.find(":"));
 
   MPI_Send(msg.c_str(), msg.length(), MPI_CHAR, proc, 0, MPI_COMM_WORLD);
-  printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d\n",rank,proc,s.c_str(),count);
+  printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d\n",rank,proc,s.c_str(),lamport_clock);
 
 }
 
+/***************************
+ * Comparison Functions
+ *
+ * The compare_send, compare_exec,
+ * compare_end, and 
+ * extract_lamport_clock are
+ * all utilty functions to
+ * make processing messages easier.
+ *
+ **************************/
 
 
 bool compare_send(string s)
@@ -162,24 +281,54 @@ bool compare_end(string s)
     }
 }
 	   
-int extract_count(string s)
+int extract_lamport_clock(string s)
 {
   int l,r;
-  string count;
+  string lamport_clock;
 
-  count = s.substr(s.find(":")+1);
+  lamport_clock = s.substr(s.find(":")+1);
 
-  return atoi(count.c_str());
+  return atoi(lamport_clock.c_str());
 
 }
 
+/************************
+ *     Receive Message
+ * 
+ * Models receiving a message in the
+ * lamport clock process. It must differentiate
+ * between a message sent by the conductor and 
+ * a message sent by another clock process. Then
+ * it must decypher the message, and respond 
+ * accordingly.
+ *
+ * Variables
+ * ----------
+ * stat: MPI_Status
+ *     - Stores info about the sending process during a receive.
+ * msg: char[256]
+ *     - Used to store messages
+ * temp_msg: char[256]
+ *     - Used during message processing
+ * send: char*
+ *     - Character array that is ultimately sent
+ * proc: int
+ *     - The number of the procedure to send to
+ * temp: string
+ *     - Temporary string used for string processing
+ * temp_num: 
+ *     - Temp string used for string processing
+ * temp_lamport:
+ *     - Temp string used for string processing
+ *
+ ************************/
 bool LamportClock::receive_msg()
 {
   MPI_Status stat;
   char msg[256], temp_msg[256];
   char *send;
   int proc;
-  string temp, temp_num, temp_count;
+  string temp, temp_num, temp_lamport_clock;
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   //printf("Message Received!");
   if(compare_exec(string(msg)))
@@ -192,7 +341,7 @@ bool LamportClock::receive_msg()
       
       if(compare_send(string(msg)))
 	{
-	  count++;
+	  lamport_clock++;
 	  
 	  temp = string(msg);
 	  temp = temp.substr(temp.find("\"") + 1);
@@ -202,29 +351,29 @@ bool LamportClock::receive_msg()
 	  temp_num = temp_num.substr(temp_num.find_last_of("<")+1, temp_num.find_last_of(">"));
 
 	  send = new char[256];
-	  sprintf(send, "%s:%d", temp.c_str(), count);
+	  sprintf(send, "%s:%d", temp.c_str(), lamport_clock);
 	  send_msg(string(send), atoi(temp_num.c_str()));
 
 	}
       else if(compare_end(string(msg)))
 	{
-	  printf("\t[%d]: Logical Clock = %d\n", rank, count);
-	  //	  MPI_Finalize();
+	  printf("\t[%d]: Logical Clock = %d\n", rank, lamport_clock);
+
 	  return false;
 	}
       else
 	{
-	  count++;
+	  lamport_clock++;
 	  
 	  temp = string(msg);
 	  temp = temp.substr(0, temp.find(":"));
 
-	  proc = extract_count(string(msg));
-	  if(proc > count)
+	  proc = extract_lamport_clock(string(msg));
+	  if(proc > lamport_clock)
 	    {
-	      count = proc;
+	      lamport_clock = proc;
 	    }
-	    printf("\t[%d]: Message Received from %d: Message >%s<: Logical Clock = %d\n",rank, stat.MPI_SOURCE, temp.c_str(), count);
+	    printf("\t[%d]: Message Received from %d: Message >%s<: Logical Clock = %d\n",rank, stat.MPI_SOURCE, temp.c_str(), lamport_clock);
 	}
     }
   return true;
