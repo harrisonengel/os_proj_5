@@ -169,8 +169,10 @@ void run_command(string s)
       
       p1 = atoi(s.substr(s.find(" ") + 1).c_str());
 
-
+      final_msg = new char[2];
       MPI_Send("<EXEC>",6, MPI_CHAR,p1,0, MPI_COMM_WORLD);
+      // Wait for process to finish EXEC command.
+      MPI_Recv(final_msg, 2, MPI_CHAR,p1, 0, MPI_COMM_WORLD, &status);
     }
   else if(command.compare("send") == 0)
     {
@@ -220,8 +222,10 @@ void LamportClock::init_clock(int r)
  **************************/
 void LamportClock::exec_event()
 {
+  char msg[] = "OK";
   lamport_clock++;
   printf("\t[%d]: Execution Event: Logical Clock = %d\n",rank, lamport_clock);
+  MPI_Send(&msg, 2, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 }
 
 /****************************
@@ -337,6 +341,7 @@ bool LamportClock::receive_msg()
   
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   //printf("Message Received!");
+  //  cout << string(msg) << endl;
   if(compare_exec(string(msg)))
     {
 
