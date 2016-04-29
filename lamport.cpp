@@ -105,8 +105,10 @@ int main(int args, char* argv[])
 	{
 	  getline(cin,input);
 	  if(string(input).compare("end") == 0)
-	    break;
-
+	    {
+	      printf("[0]: Simulation Ending.\n");
+	      break;
+	    }
 	  run_command(input);
 
 	 
@@ -123,7 +125,7 @@ int main(int args, char* argv[])
       while(myClock.receive_msg());
 
     }
-
+  
   // Finalize MPI
   MPI_Finalize();
 
@@ -158,6 +160,7 @@ void run_command(string s)
   string command, temp, message;
   int p1, p2;
   char *final_msg;
+  MPI_Status status;
   
   command = s.substr(0,s.find(" "));
 
@@ -184,7 +187,7 @@ void run_command(string s)
       sprintf(final_msg,"<SEND>: <%s> <%d>",message.c_str(), p2);
            
       MPI_Send(final_msg,string(final_msg).length(), MPI_CHAR, p1,0, MPI_COMM_WORLD);
-
+      MPI_Recv(&final_msg, 2, MPI_CHAR, p2, 0, MPI_COMM_WORLD, &status);
     }
   else
     {
@@ -236,9 +239,10 @@ void LamportClock::exec_event()
 void LamportClock::send_msg(string msg, int proc)
 {
   string s = msg.substr(0,msg.find(":"));
-
+  
   MPI_Send(msg.c_str(), msg.length(), MPI_CHAR, proc, 0, MPI_COMM_WORLD);
   printf("\t[%d]: Message Sent to %d: Messgage >%s<: Logical Clock = %d\n",rank,proc,s.c_str(),lamport_clock);
+
 
 }
 
@@ -329,6 +333,8 @@ bool LamportClock::receive_msg()
   char *send;
   int proc;
   string temp, temp_num, temp_lamport_clock;
+  char ok[] = "OK";
+  
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
   //printf("Message Received!");
   if(compare_exec(string(msg)))
@@ -374,8 +380,10 @@ bool LamportClock::receive_msg()
 	      lamport_clock = proc;
 	    }
 	    printf("\t[%d]: Message Received from %d: Message >%s<: Logical Clock = %d\n",rank, stat.MPI_SOURCE, temp.c_str(), lamport_clock);
+	    MPI_Send(&ok, 2, MPI_CHAR, 0, 0, MPI_COMM_WORLD); // Send message to get conductor running again
 	}
     }
   return true;
 
 }
+ 
