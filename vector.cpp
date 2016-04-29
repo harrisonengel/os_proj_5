@@ -22,16 +22,17 @@ using namespace std;
  * Variabls
  * -------
  * vector_clock: int 
- *    - Keeps track of the logical clock
+ *    - Keeps track of the vector clock
  *
  * rank: int
  *    - Current rank of process with clock
  *
  * Functions
  * ---------
- * init_clock(int r):
+ * init_clock(int r, int s):
  *     - creates a new clock with starting
- *       value of 0. r is its rank.
+ *       value of 0. r is its rank and lets
+ *       it know the number of processes is size
  *
  * exec_event():
  *     - Simulates executing an event.
@@ -48,9 +49,9 @@ public:
   int* vector_clock;
   int rank, size;
   void init_clock(int r, int s);
-  void exec_event(int rank, int size);
-  void send_msg(string msg, int proc, int rank);
-  bool receive_msg(int rank);
+  void exec_event();
+  void send_msg(string msg, int proc);
+  bool receive_msg();
 };
 
 
@@ -109,7 +110,10 @@ int main(int args, char* argv[])
 	{
 	  getline(cin,input);
 	  if(string(input).compare("end") == 0)
-	    break;
+	    {
+	      printf("[0]: Simulation Ending\n");
+	      break;
+	    }
 
 	  run_command(input);
 
@@ -127,7 +131,7 @@ int main(int args, char* argv[])
 
       myClock.init_clock(rank, size);
 
-      while(myClock.receive_msg(rank));
+      while(myClock.receive_msg());
 
     }
 
@@ -165,19 +169,22 @@ void run_command(string s)
   string command, temp, message;
   int p1, p2;
   char *final_msg;
-  
+  MPI_Status status;
+  char ok[2];
   command = s.substr(0,s.find(" "));
-
+  
   if(command.compare("exec") == 0)
     {
       
       p1 = atoi(s.substr(s.find(" ") + 1).c_str());
 
-
+      
       MPI_Send("<EXEC>",6, MPI_CHAR,p1,0, MPI_COMM_WORLD);
+      MPI_Recv(&ok, 2, MPI_CHAR, p1, 0, MPI_COMM_WORLD, &status);
     }
   else if(command.compare("send") == 0)
     {
+
       temp = s.substr(s.find(" ") + 1);
 
       p1 = atoi(temp.substr(0,temp.find(" ")).c_str());
@@ -190,9 +197,9 @@ void run_command(string s)
       final_msg = new char[256];
       // <SEND>: <"message"> <#>
       sprintf(final_msg,"<SEND>: <%s> <%d>",message.c_str(), p2);
-           
-      MPI_Send(final_msg,string(final_msg).length(), MPI_CHAR, p1,0, MPI_COMM_WORLD);
 
+      MPI_Send(final_msg,string(final_msg).length(), MPI_CHAR, p1,0, MPI_COMM_WORLD);
+      MPI_Recv(final_msg, 2, MPI_CHAR, p2, 0, MPI_COMM_WORLD, &status);
     }
   else
     {
@@ -210,6 +217,8 @@ void run_command(string s)
  * ----------
  * r: int
  *     - The rank for MPI of this process
+ * s: int
+ *     - The number of processes
  *************************/
 void VectorClock::init_clock(int r, int s)
 {
@@ -230,20 +239,23 @@ void VectorClock::init_clock(int r, int s)
  * Simulates executing an event.
  * 
  **************************/
-void VectorClock::exec_event(int rank, int size)
+void VectorClock::exec_event()
 {
+  char ok[] = "OK";
   printf("\t[%d]: Execution Event: Logical Clock = ",rank);
 
 
   //Print time stamp
   printf("[");
 
-  for (int i = 0; i < size - 1; i++)
+  for (int i = 1; i < size - 1; i++)
   {
     printf("%d, ",vector_clock[i]);
   }
 
   printf("%d]\n", vector_clock[size-1]);
+
+  MPI_Send(&ok, 2, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
   
 }
 
@@ -259,9 +271,9 @@ void VectorClock::exec_event(int rank, int size)
  * proc: int
  *     - The process to send the message to
  ****************************/
-void VectorClock::send_msg(string msg, int proc, int rank)
+void VectorClock::send_msg(string msg, int proc)
 {
-
+  
 
   string s = msg.substr(0,msg.find("["));
 
@@ -273,7 +285,7 @@ void VectorClock::send_msg(string msg, int proc, int rank)
   //print vector clock
   printf("[");
 
-  for (int i = 0; i < size - 1; i++)
+  for (int i = 1; i < size - 1; i++)
   {
     printf("%d, ",vector_clock[i]);
   }
@@ -350,9 +362,10 @@ bool compare_end(string s)
  *     - Temp string used for string processing
  * temp_vector:
  *     - Temp string used for string processing
- *
+ * ok: char[2]
+ *     - Message to reply to the coordinator aknowledging completion
  ************************/
-bool VectorClock::receive_msg(int rank)
+bool VectorClock::receive_msg()
 {
 
   vector_clock[rank]++;
@@ -362,11 +375,14 @@ bool VectorClock::receive_msg(int rank)
   char *send;
   int proc;
   string temp, temp_num, temp_vector_clock;
+  char ok[] = "OK";
+  
   MPI_Recv(&msg, 256, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+
   //printf("Message Received!");
   if(compare_exec(string(msg)))
     {
-      exec_event(rank, size);
+      exec_event();
     }
   else
     {
@@ -401,7 +417,7 @@ bool VectorClock::receive_msg(int rank)
     send+= to_string(vector_clock[size-1]);
     send+= "]";
 
-	  send_msg(send, atoi(temp_num.c_str()), rank);
+	  send_msg(send, atoi(temp_num.c_str()));
 
 	}
       else if(compare_end(string(msg)))
@@ -410,7 +426,17 @@ bool VectorClock::receive_msg(int rank)
     vector_clock[rank]--;
 
     printf("\t[%d]: Vector Clock = ", rank);
-    // TODO Big Loop
+
+     printf("[");
+
+      for (int i = 1; i < size - 1; i++)
+      {
+        printf("%d, ",vector_clock[i]);
+      }
+
+      printf("%d]\n", vector_clock[size-1]);
+
+
 	  return false;
 	}
       else //receive message from another process (not coordinator)
@@ -419,57 +445,44 @@ bool VectorClock::receive_msg(int rank)
 	  temp = string(msg);
 	  temp = temp.substr(0, temp.find("["));
 
-	  //int timestamp[size] = extract_vector_clock(string(msg));
+	  int temp_int;
+	  string s = string(msg);
 
+    	  for (int i=1; i<size-1; i++)
+	    {
+	      
+	      s = s.substr(s.find(",") +1);
+	      int tempValue = atoi(s.substr(0, s.find(",")).c_str());
 
+	      if (vector_clock[i] < tempValue) {
+		vector_clock[i] = tempValue;
+	      }
 
-    int temp_int;
-    string s = string(msg);
+	    }
+	 
+	  s = s.substr(s.find(",") + 1);
+	  int tempValueLast = atoi(s.substr(0, s.find("]")).c_str());
 
-    
-
-    int tempValue0 = atoi(s.substr(s.find("[")+1, s.find(",")).c_str());
-    if (vector_clock[0] < tempValue0) {
-          vector_clock[0] = tempValue0;
-        }
-
-    s = s.substr(s.find(",") +1);
-
-    for (int i=1; i<size-1; i++)
-      {
-
-        s = s.substr(s.find(",") +1);
-        int tempValue = atoi(s.substr(0, s.find(",")).c_str());
-
-        if (vector_clock[i] < tempValue) {
-          vector_clock[i] = tempValue;
-        }
-
-      }
-
-
-    int tempValueLast = atoi(s.substr(0, s.find("]")).c_str());
-
-    if (vector_clock[size-1] < tempValueLast) {
-      vector_clock[size-1] = tempValueLast;
-    }
+	  if (vector_clock[size-1] < tempValueLast) {
+	    vector_clock[size-1] = tempValueLast;
+	  }
 
 	    printf("\t[%d]: Message Received from %d: Message >%s<: Logical Clock = ",rank, stat.MPI_SOURCE, temp.c_str());
 
 
-      //print vector clock
-      printf("[");
+	    // Print Vector Clock
+	    printf("[");
+	    
+	    for (int i = 1; i < size - 1; i++)
+	      {
+		printf("%d, ",vector_clock[i]);
+	      }
+	    
+	    printf("%d]\n", vector_clock[size-1]);
+	    
 
-      for (int i = 0; i < size - 1; i++)
-      {
-        printf("%d, ",vector_clock[i]);
-      }
-
-      printf("%d]\n", vector_clock[size-1]);
-
-
-
-
+	    MPI_Send(&ok, 2, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+	    
 	}
     }
   return true;

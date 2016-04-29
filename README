@@ -1,0 +1,14 @@
+Project 5: Lamport and Vector Logical Clocks
+
+1. Harrison Engel and Duy Dang
+
+2. Operating Systems: Project Number 5
+Language used: C++
+
+3. This project is to simulate and test the two logical clock algorithms: Lamport and Vector so that students can really understand the algorithms.
+
+4. There are currently no known issue with this submission. However, the input syntax will need to be exactly correct.
+
+5. Approximately 14 hours were put into this project including reviewing the algorithms and the actual creation of code.
+
+6. The biggest difficulty of this project is to deal with string manipulation in C++ to parse the messages.
