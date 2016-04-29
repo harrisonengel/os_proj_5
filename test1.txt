@@ -1,0 +1,12 @@
+9
+exec 1
+exec 2
+exec 9
+exec 9
+exec 9
+exec 9
+send 9 1 "silly message"
+send 1 3 "Howdy"
+send 2 3 "good day"
+send 3 5 "Hola"
+end
